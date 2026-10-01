@@ -18,18 +18,42 @@ ADDR_RE = re.compile(r"(?:地址|位置|地點|所在地)\s*[:：]?\s*([^\n]{3,4
 IMG_RE = re.compile(r"https?://(?:i\.)?imgur\.com/([A-Za-z0-9]+)(?:\.(?:jpe?g|png|gif))?")
 
 
-def _session() -> requests.Session:
-    s = requests.Session()
-    s.headers.update(HEADERS)
-    s.cookies.set("over18", "1", domain="www.ptt.cc")
-    return s
+class _Client:
+    """先用 curl_cffi 模擬 Chrome（PTT 的 Cloudflare 會擋機房 IP 的普通 requests），失敗再退回 requests。"""
+
+    def __init__(self):
+        self.mode = "curl_cffi"
+        try:
+            from curl_cffi import requests as creq
+            self.s = creq.Session(impersonate="chrome")
+            self.s.cookies.set("over18", "1", domain="www.ptt.cc")
+        except Exception:
+            self._fallback()
+
+    def _fallback(self):
+        self.mode = "requests"
+        self.s = requests.Session()
+        self.s.headers.update(HEADERS)
+        self.s.cookies.set("over18", "1", domain="www.ptt.cc")
+
+    def get(self, url: str):
+        r = self.s.get(url, timeout=30, headers={"Accept-Language": "zh-TW,zh;q=0.9", "Referer": BASE + "/bbs/index.html"})
+        if r.status_code == 403 and self.mode == "curl_cffi":
+            self._fallback()
+            r = self.s.get(url, timeout=30)
+        if r.status_code != 200:
+            raise RuntimeError(f"HTTP {r.status_code} ({self.mode}) for {url}")
+        return r
 
 
-def _index_pages(s: requests.Session, board: str, pages: int):
+def _session() -> _Client:
+    return _Client()
+
+
+def _index_pages(s: _Client, board: str, pages: int):
     url = f"{BASE}/bbs/{board}/index.html"
     for _ in range(pages):
-        r = s.get(url, timeout=30)
-        r.raise_for_status()
+        r = s.get(url)
         soup = BeautifulSoup(r.text, "lxml")
         yield soup
         prev = next((a for a in soup.select("div.btn-group-paging a.btn") if "上頁" in a.get_text()), None)
@@ -39,9 +63,8 @@ def _index_pages(s: requests.Session, board: str, pages: int):
         time.sleep(0.5)
 
 
-def _article(s: requests.Session, url: str) -> tuple[str, str | None]:
-    r = s.get(url, timeout=30)
-    r.raise_for_status()
+def _article(s: _Client, url: str) -> tuple[str, str | None]:
+    r = s.get(url)
     soup = BeautifulSoup(r.text, "lxml")
     main = soup.select_one("#main-content")
     if not main:
