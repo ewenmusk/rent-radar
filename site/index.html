@@ -140,7 +140,7 @@ code{background:var(--chip);padding:1px 5px;border-radius:5px;font-size:12px}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
 (() => {
-const DISTRICTS = ["板橋","萬華","三重","中和","永和"];
+const DISTRICTS = ["板橋","萬華","三重","新莊","中正","中山","中和"];
 const KINDS = ["整層住家","獨立套房"];
 const SOURCES = {rent591:"591", ptt:"PTT", fb:"FB"};
 const LS = {
@@ -255,7 +255,7 @@ function renderSettings(){
     <div class="card"><h3>已隱藏（${hid.length}）</h3>${hid.length? hid.map(l => `<div class="row"><span style="flex:1;font-size:13px">${esc(l.district)} ${l.price?fmtPrice(l.price):""} ${esc(l.title).slice(0,24)}</span><button class="chip" data-unhide="${esc(l.id)}">還原</button></div>`).join("") : "<p>沒有隱藏的物件</p>"}
       ${hid.length? `<p><button class="btn ghost" id="unhideAll">全部還原</button></p>`:""}</div>
     <div class="card"><h3>外觀</h3><div class="row"><button class="chip" data-theme="auto">跟隨系統</button><button class="chip" data-theme="light">淺色</button><button class="chip" data-theme="dark">深色</button></div></div>
-    <div class="card"><h3>說明</h3><p>每小時自動掃 591、PTT 租屋板與 FB 社團通知信，只收板橋／萬華／三重／中和／永和、12,000–18,500 的整層住家與獨立套房。🏷️ 表示內容提到可申請租金補貼。收藏與隱藏只存在這支手機的瀏覽器。</p><p>手機通知：裝 ntfy App 並訂閱設定好的主題，有新物件就會推播。</p></div>
+    <div class="card"><h3>說明</h3><p>每小時自動掃 591、PTT 租屋板與 FB 社團通知信，只收板橋／萬華／三重／新莊／中正／中山，以及靠近板橋的中和、12,000–18,500 的整層住家與獨立套房。🏷️ 表示內容提到可申請租金補貼。收藏與隱藏只存在這支手機的瀏覽器。</p><p>手機通知：裝 ntfy App 並訂閱設定好的主題，有新物件就會推播。</p></div>
   </div>`;
 }
 
@@ -326,7 +326,7 @@ async function load(){
       fetch("data/listings.json"+bust, {cache:"no-store"}).then(r => r.ok? r.json() : {listings:[]}),
       fetch("data/status.json"+bust, {cache:"no-store"}).then(r => r.ok? r.json() : null).catch(() => null),
     ]);
-    DATA = a.listings || []; STATUS = b;
+    DATA = (a.listings || []).filter(l => !(l.extra && l.extra.out_of_area)); STATUS = b;
     const g = a.generated_at ? new Date(a.generated_at) : null;
     $("#upd").innerHTML = g ? `更新 ${rel(g.toISOString())}<br><small>${g.toLocaleString("zh-TW",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"})}</small>` : "尚無資料";
     const newCount = DATA.filter(isNew).length;

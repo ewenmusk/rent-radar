@@ -25,11 +25,22 @@ CITY_WORDS = {"台北市": ["台北", "臺北", "北市"], "新北市": ["新北
 def detect_district(text: str, districts: Iterable[dict]) -> dict | None:
     if not text:
         return None
+    districts = list(districts)
+    # 1) 明確寫「X區」的優先，取最早出現的
+    best = None
     for d in districts:
-        name = d["name"]
-        if name in text or f"{name}區" in text:
-            return d
-    return None
+        i = text.find(d["name"] + "區")
+        if i >= 0 and (best is None or i < best[0]):
+            best = (i, d)
+    if best:
+        return best[1]
+    # 2) 只有區名：排除路名／橋名（中山路、中正路、中和路、中正橋…），取最早出現的
+    for d in districts:
+        for m in re.finditer(re.escape(d["name"]) + r"(?![路街橋東西南北一二三])", text):
+            if best is None or m.start() < best[0]:
+                best = (m.start(), d)
+            break
+    return best[1] if best else None
 
 
 def parse_price(text: str) -> int | None:

@@ -16,7 +16,7 @@ from pathlib import Path
 import yaml
 
 from . import store
-from .geocode import Geocoder, nearest_station, station_by_name
+from .geocode import Geocoder, haversine_m, nearest_station, station_by_name
 from .models import Listing
 from .normalize import subsidy_hits
 from .notify import notify_new, send
@@ -88,7 +88,12 @@ def main(argv: list[str] | None = None) -> int:
         st["last_run"] = store.now_iso()
 
     new_items = store.merge(existing, fresh, int(cfg.get("keep_days", 30)))
-    log(f"合併後 {len(existing)} 筆，新增 {len(new_items)} 筆")
+    wanted = {d["name"] for d in cfg["districts"]}
+    dropped = [k for k, v in existing.items() if v.district not in wanted]
+    for k in dropped:
+        del existing[k]
+    new_items = [l for l in new_items if l.district in wanted]
+    log(f"合併後 {len(existing)} 筆，新增 {len(new_items)} 筆" + (f"，移除不在設定區域 {len(dropped)} 筆" if dropped else ""))
 
     # 補座標與最近捷運站
     cache = store.load_geocache()
@@ -114,6 +119,30 @@ def main(argv: list[str] | None = None) -> int:
             st = station_by_name(l.address) or station_by_name(l.title + " " + (l.raw_text or "")[:300])
             if st:
                 l.nearest_mrt, l.mrt_dist_m = st["name"], None
+
+    # 有 near 限制的區（例：中和只收靠近板橋的）：範圍外或座標只到行政區的先標記隱藏
+    near_rules = {d["name"]: d["near"] for d in cfg["districts"] if d.get("near")}
+    new_ids = {l.id for l in new_items}
+    for l in existing.values():
+        rule = near_rules.get(l.district)
+        was_out = bool(l.extra.get("out_of_area"))
+        out = False
+        if rule:
+            ok = l.lat is not None and l.lng is not None and l.extra.get("geo_precision") != "district"
+            if ok:
+                dist = min(haversine_m(l.lat, l.lng, p[0], p[1]) for p in rule["points"])
+                ok = dist <= float(rule["max_km"]) * 1000
+            out = not ok
+        if out:
+            l.extra["out_of_area"] = True
+        else:
+            l.extra.pop("out_of_area", None)
+            if was_out and l.id not in new_ids:   # 座標補精確後才確認在範圍內 → 當成新物件通知
+                new_items.append(l)
+    new_items = [l for l in new_items if not l.extra.get("out_of_area")]
+    hidden = sum(1 for l in existing.values() if l.extra.get("out_of_area"))
+    if near_rules:
+        log(f"範圍限制：隱藏 {hidden} 筆（{'、'.join(near_rules)} 不靠近指定區域或座標未明）")
 
     if args.dry_run:
         for l in sorted(fresh, key=lambda x: (x.source, x.price or 0)):

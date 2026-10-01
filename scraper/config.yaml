@@ -5,11 +5,14 @@ price:
 
 # 591 的 region/section 代碼（2026-10 實測）
 districts:
-  - { name: 萬華, city: 台北市, region: 1, section: 6 }
   - { name: 板橋, city: 新北市, region: 3, section: 26 }
+  - { name: 萬華, city: 台北市, region: 1, section: 6 }
   - { name: 三重, city: 新北市, region: 3, section: 43 }
-  - { name: 中和, city: 新北市, region: 3, section: 38 }
-  - { name: 永和, city: 新北市, region: 3, section: 37 }
+  - { name: 新莊, city: 新北市, region: 3, section: 44 }
+  - { name: 中正, city: 台北市, region: 1, section: 1 }
+  - { name: 中山, city: 台北市, region: 1, section: 3 }
+  # 中和只收靠近板橋的：距板新站 2 公里內（中原站、環球、員山路一帶）。座標還不精確的先隱藏。
+  - { name: 中和, city: 新北市, region: 3, section: 38, near: { label: 板橋, points: [[25.014491, 121.472212]], max_km: 2.0 } }
 
 rent591:
   kinds: [1, 2]          # 1 整層住家、2 獨立套房
