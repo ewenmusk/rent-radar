@@ -84,10 +84,18 @@ def merge(existing: dict[str, Listing], fresh: list[Listing], keep_days: int) ->
                 v = getattr(l, f)
                 if v not in (None, "", [], {}):
                     setattr(old, f, v)
-            if l.lat and l.lng and not old.lat:
+            new_prec = l.extra.get("geo_precision")
+            old_prec = old.extra.get("geo_precision")
+            if l.lat and l.lng and (not old.lat or (new_prec == "exact" and old_prec != "exact")):
                 old.lat, old.lng = l.lat, l.lng
+                old.nearest_mrt, old.mrt_dist_m = l.nearest_mrt, l.mrt_dist_m
+            if l.nearest_mrt and not old.nearest_mrt:
+                old.nearest_mrt, old.mrt_dist_m = l.nearest_mrt, l.mrt_dist_m
             if l.posted_at and not old.posted_at:
                 old.posted_at = l.posted_at
+            for k, v in l.extra.items():
+                if v not in (None, ""):
+                    old.extra[k] = v
             old.last_seen = ts
             continue
         # 跨來源弱去重：同價、同區、標題相近 → 併入既有物件的 sources

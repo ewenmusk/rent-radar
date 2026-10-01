@@ -120,7 +120,7 @@ def item_to_listing(item: dict, districts: list[dict], keywords: list[str]) -> L
     if isinstance(sur, dict) and sur.get("desc"):
         surrounding = f"{sur.get('desc')} {sur.get('distance') or ''}".strip()
         if sur.get("type") == "metro":
-            nearest_mrt = re.sub(r"^距", "", str(sur["desc"])).replace("站", "").strip() or None
+            nearest_mrt = re.sub(r"^距", "", str(sur["desc"])).replace("捷運", "").replace("站", "").strip() or None
             md = re.search(r"(\d+)\s*(公尺|m)", str(sur.get("distance") or ""))
             if md:
                 mrt_dist = int(md.group(1))
@@ -298,10 +298,13 @@ def fetch(ctx: dict) -> list[Listing]:
                 break  # 已到最後一頁
     ctx["log"](f"591 列表 {len(results)} 筆（{'CSS 備援' if used_css else '__NUXT__'}）")
 
-    # 新物件抓 detail
-    new_ids = [l for l in results.values() if l.id not in known]
+    # 新物件、以及之前還沒抓過 detail 的舊物件，抓 detail 取座標與刊登時間
+    existing: dict = ctx.get("existing", {})
+    need = [l for l in results.values()
+            if l.id not in known or not (existing.get(l.id) and existing[l.id].extra.get("detail_done"))]
     budget = int(cfg.get("detail_per_run", 20))
-    for l in new_ids[:budget]:
+    done = 0
+    for l in need[:budget]:
         _sleep(cfg)
         try:
             info = fetch_detail(session, int(l.id.split(":")[1]))
@@ -311,8 +314,14 @@ def fetch(ctx: dict) -> list[Listing]:
         except Exception as e:  # noqa: BLE001
             ctx["log"](f"591 detail {l.id} 失敗: {e}")
             continue
-        l.lat, l.lng = info.get("lat"), info.get("lng")
+        done += 1
+        l.extra["detail_done"] = True
+        if info.get("lat") and info.get("lng"):
+            l.lat, l.lng = info["lat"], info["lng"]
+            l.extra["geo_precision"] = "exact"
+            l.nearest_mrt, l.mrt_dist_m = None, None  # 讓 run.py 用精確座標重算
         l.posted_at = info.get("posted_at")
         if info.get("address") and len(info["address"]) > len(l.address):
             l.address = info["address"]
+    ctx["log"](f"591 detail 抓了 {done} 筆，待補 {max(0, len(need) - done)} 筆")
     return list(results.values())

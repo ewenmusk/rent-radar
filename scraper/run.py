@@ -58,7 +58,8 @@ def main(argv: list[str] | None = None) -> int:
     existing = store.load_listings()
     status = store.load_status()
     status.setdefault("sources", {})
-    ctx = {"cfg": cfg, "known_ids": set(existing), "dry_run": args.dry_run, "log": log}
+    first_run = not existing
+    ctx = {"cfg": cfg, "known_ids": set(existing), "existing": existing, "dry_run": args.dry_run, "log": log}
 
     fresh: list[Listing] = []
     blocked591 = False
@@ -98,7 +99,7 @@ def main(argv: list[str] | None = None) -> int:
             if res:
                 l.lat, l.lng, prec = res
                 l.extra["geo_precision"] = prec
-        precise = l.extra.get("geo_precision") in (None, "street")
+        precise = l.extra.get("geo_precision") in (None, "street", "exact")
         if l.lat is not None and l.lng is not None and l.nearest_mrt is None and precise:
             l.nearest_mrt, l.mrt_dist_m = nearest_station(l.lat, l.lng)
         elif l.nearest_mrt is None and l.extra.get("geo_precision") == "station":
@@ -120,7 +121,11 @@ def main(argv: list[str] | None = None) -> int:
     topic = os.environ.get("NTFY_TOPIC")
     site_url = os.environ.get("SITE_URL", "")
     if not args.no_notify:
-        notify_new(topic, new_items, site_url)
+        if first_run and new_items:
+            n_sub = sum(1 for l in new_items if l.subsidy)
+            send(topic, "租屋雷達啟動", f"初始化完成，收錄 {len(new_items)} 筆（可租補 {n_sub} 筆）。之後只推新物件。", click=site_url or None, tags=["house"])
+        else:
+            notify_new(topic, new_items, site_url)
         for name, st in status["sources"].items():
             if st.get("consecutive_failures", 0) == 3:
                 send(topic, f"來源 {name} 連續失敗 3 次", str(st.get("last_error"))[:300], click=site_url or None, priority=2, tags=["warning"])

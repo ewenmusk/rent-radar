@@ -111,6 +111,8 @@ jobs:
           cp data/*.json _site/data/ 2>/dev/null || true
           ls -la _site _site/data
       - uses: actions/configure-pages@v5
+        with:
+          enablement: true
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site
