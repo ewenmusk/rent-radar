@@ -1,0 +1,21 @@
+{
+ "sources": {
+  "rent591": {
+   "consecutive_failures": 0,
+   "ok": true,
+   "last_success": "2026-10-01T12:10:16+08:00",
+   "last_error": null,
+   "count": 197,
+   "last_run": "2026-10-01T12:10:16+08:00"
+  },
+  "ptt": {
+   "consecutive_failures": 0,
+   "ok": true,
+   "last_success": "2026-10-01T12:10:34+08:00",
+   "last_error": null,
+   "count": 8,
+   "last_run": "2026-10-01T12:10:34+08:00"
+  }
+ },
+ "updated_at": "2026-10-01T12:10:50+08:00"
+}
