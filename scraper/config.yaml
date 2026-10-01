@@ -48,4 +48,4 @@ exclude_keywords:     # 標題含這些就跳過（PTT / FB）
   - 車位出租
 
 keep_days: 30
-geocode_per_run: 15
+geocode_per_run: 25

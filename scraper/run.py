@@ -93,12 +93,20 @@ def main(argv: list[str] | None = None) -> int:
     # 補座標與最近捷運站
     cache = store.load_geocache()
     geocoder = Geocoder(cache, budget=int(cfg.get("geocode_per_run", 15)))
-    for l in sorted(existing.values(), key=lambda x: x.first_seen or "", reverse=True):
-        if (l.lat is None or l.lng is None) and (l.address or l.district):
+    # 先補完全沒座標的，再把只有「區中心／站名」等級的升級到路名（Nominatim 快取會記住查失敗的，不耗額度）
+    rank = {None: 0, "district": 1, "station": 2}
+    for l in sorted(existing.values(), key=lambda x: (rank.get(x.extra.get("geo_precision"), 9), x.first_seen or ""), reverse=False):
+        prec_now = l.extra.get("geo_precision")
+        needs = l.lat is None or l.lng is None
+        upgradable = prec_now in ("district", "station") and bool(l.address)
+        if (needs and (l.address or l.district)) or upgradable:
+            if upgradable and geocoder.used >= geocoder.budget:
+                break
             res = geocoder.locate(l.address, l.city, l.district, hint_text=l.title + " " + (l.raw_text or "")[:300])
-            if res:
+            if res and (needs or res[2] == "street"):
                 l.lat, l.lng, prec = res
                 l.extra["geo_precision"] = prec
+                l.nearest_mrt, l.mrt_dist_m = (None, None) if prec == "street" else (l.nearest_mrt, l.mrt_dist_m)
         precise = l.extra.get("geo_precision") in (None, "street", "exact")
         if l.lat is not None and l.lng is not None and l.nearest_mrt is None and precise:
             l.nearest_mrt, l.mrt_dist_m = nearest_station(l.lat, l.lng)
