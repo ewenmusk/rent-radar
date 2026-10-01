@@ -1,0 +1,118 @@
+name: scrape
+
+on:
+  schedule:
+    - cron: "17 * * * *"      # 每小時 17 分（避開整點尖峰）
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "site/**"
+      - "data/**"
+      - "scraper/**"
+      - ".github/workflows/scrape.yml"
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: scrape
+  cancel-in-progress: false
+
+env:
+  PYTHONIOENCODING: utf-8
+  SITE_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
+
+jobs:
+  scrape:
+    if: github.event_name != 'push'
+    runs-on: ubuntu-latest
+    outputs:
+      blocked591: ${{ steps.run.outputs.blocked591 }}
+      new_count: ${{ steps.run.outputs.new_count }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - id: run
+        name: 抓取所有來源
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          FB_MAIL_USER: ${{ secrets.FB_MAIL_USER }}
+          FB_MAIL_PASS: ${{ secrets.FB_MAIL_PASS }}
+          FB_MAIL_HOST: ${{ secrets.FB_MAIL_HOST }}
+        run: python -m scraper.run
+      - name: 提交資料
+        run: |
+          git config user.name "rent-radar-bot"
+          git config user.email "rent-radar-bot@users.noreply.github.com"
+          git add data
+          if git diff --cached --quiet; then
+            echo "no data changes"
+          else
+            git commit -m "data: $(TZ=Asia/Taipei date +%Y-%m-%dT%H:%M)"
+            git pull --rebase -X theirs origin main || true
+            git push
+          fi
+
+  retry591:
+    needs: scrape
+    if: needs.scrape.outputs.blocked591 == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: 換一台 runner 重抓 591
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        run: |
+          sleep 60
+          git pull --rebase origin main || true
+          python -m scraper.run --source rent591
+      - name: 提交資料
+        run: |
+          git config user.name "rent-radar-bot"
+          git config user.email "rent-radar-bot@users.noreply.github.com"
+          git add data
+          if git diff --cached --quiet; then
+            echo "no data changes"
+          else
+            git commit -m "data: retry $(TZ=Asia/Taipei date +%Y-%m-%dT%H:%M)"
+            git pull --rebase -X theirs origin main || true
+            git push
+          fi
+
+  deploy:
+    needs: [scrape, retry591]
+    if: always() && !cancelled()
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: 組裝網站
+        run: |
+          mkdir -p _site/data
+          cp -r site/* _site/
+          cp data/*.json _site/data/ 2>/dev/null || true
+          ls -la _site _site/data
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,51 @@
+# 租屋雷達設定檔
+price:
+  min: 12000
+  max: 18500
+
+# 591 的 region/section 代碼（2026-10 實測）
+districts:
+  - { name: 萬華, city: 台北市, region: 1, section: 6 }
+  - { name: 板橋, city: 新北市, region: 3, section: 26 }
+  - { name: 三重, city: 新北市, region: 3, section: 43 }
+  - { name: 中和, city: 新北市, region: 3, section: 38 }
+  - { name: 永和, city: 新北市, region: 3, section: 37 }
+
+rent591:
+  kinds: [1, 2]          # 1 整層住家、2 獨立套房
+  pages: 2               # 每組查詢抓幾頁（每頁 30 筆，依刊登時間新→舊）
+  detail_per_run: 20     # 每次執行最多抓幾筆 detail（取座標與刊登時間）
+  delay: [2, 5]          # 請求間隔秒數（隨機）
+
+ptt:
+  boards: [Rent_apart, Rent_tao]
+  pages: 3
+
+fb_mail:
+  host: imap.gmail.com
+  lookback_hours: 48
+  mark_seen: true
+
+subsidy_keywords:
+  - 租金補貼
+  - 可租補
+  - 租補
+  - 租屋補助
+  - 可申請補助
+  - 可申請補貼
+  - 可報稅
+  - 可遷戶籍
+  - 可入籍
+  - 社會住宅
+
+exclude_keywords:     # 標題含這些就跳過（PTT / FB）
+  - 徵
+  - 求租
+  - 已出租
+  - 已租出
+  - 已租
+  - 代租
+  - 車位出租
+
+keep_days: 30
+geocode_per_run: 15

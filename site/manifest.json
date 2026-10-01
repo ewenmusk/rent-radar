@@ -1,0 +1,14 @@
+{
+  "name": "租屋雷達",
+  "short_name": "租屋雷達",
+  "description": "雙北租屋物件自動彙整，每小時更新",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f5f6f8",
+  "theme_color": "#0f766e",
+  "lang": "zh-Hant",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

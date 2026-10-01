@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f766e">
+<title>租屋雷達</title>
+<meta name="description" content="雙北租屋物件自動彙整：591、PTT、FB 社團，每小時更新。">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+:root{
+  --bg:#f5f6f8; --card:#ffffff; --text:#1a1d21; --muted:#5f6b76; --line:#e3e6ea;
+  --accent:#0f766e; --accent-soft:#d9f2ee; --subsidy:#b45309; --subsidy-soft:#fff1dc;
+  --new:#1d4ed8; --new-soft:#e3ebff; --danger:#b91c1c; --chip:#eef0f3; --chip-on:#0f766e; --chip-on-text:#fff;
+  --shadow:0 1px 2px rgba(0,0,0,.06),0 4px 12px rgba(0,0,0,.05);
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0f1214; --card:#181c20; --text:#e8eaed; --muted:#9aa5b1; --line:#2a3036;
+  --accent:#2dd4bf; --accent-soft:#113a36; --subsidy:#fbbf24; --subsidy-soft:#3a2a07;
+  --new:#93b4ff; --new-soft:#1a2747; --danger:#f87171; --chip:#232930; --chip-on:#2dd4bf; --chip-on-text:#0b1a18;
+  --shadow:0 1px 2px rgba(0,0,0,.4);
+}}
+:root[data-theme="dark"]{
+  --bg:#0f1214; --card:#181c20; --text:#e8eaed; --muted:#9aa5b1; --line:#2a3036;
+  --accent:#2dd4bf; --accent-soft:#113a36; --subsidy:#fbbf24; --subsidy-soft:#3a2a07;
+  --new:#93b4ff; --new-soft:#1a2747; --danger:#f87171; --chip:#232930; --chip-on:#2dd4bf; --chip-on-text:#0b1a18;
+  --shadow:0 1px 2px rgba(0,0,0,.4);
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 system-ui,-apple-system,"PingFang TC","Noto Sans TC","Microsoft JhengHei",sans-serif;-webkit-text-size-adjust:100%}
+body{padding-bottom:calc(64px + env(safe-area-inset-bottom))}
+a{color:inherit;text-decoration:none}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+header{position:sticky;top:0;z-index:20;background:var(--bg);border-bottom:1px solid var(--line)}
+.bar{display:flex;align-items:center;gap:10px;padding:10px 16px 6px}
+.bar h1{font-size:18px;margin:0;flex:1}
+.bar .upd{font-size:12px;color:var(--muted);text-align:right;line-height:1.2}
+.status{display:flex;gap:6px;padding:0 16px 8px;flex-wrap:wrap}
+.status span{font-size:11px;color:var(--muted);display:inline-flex;align-items:center;gap:4px}
+.status i{width:7px;height:7px;border-radius:50%;background:#9ca3af;display:inline-block}
+.status i.ok{background:#16a34a}.status i.bad{background:#dc2626}
+.chips{display:flex;gap:6px;overflow-x:auto;padding:6px 16px 10px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;padding:6px 11px;border-radius:999px;background:var(--chip);font-size:13px;white-space:nowrap;border:1px solid transparent}
+.chip.on{background:var(--chip-on);color:var(--chip-on-text);font-weight:600}
+.chip.sub.on{background:var(--subsidy);color:#fff}
+.chip.gear{border-color:var(--line);background:transparent}
+.panel{display:none;padding:4px 16px 12px;border-top:1px dashed var(--line)}
+.panel.open{display:block}
+.row{display:flex;gap:8px;align-items:center;margin:8px 0;flex-wrap:wrap}
+.row label{font-size:13px;color:var(--muted);min-width:40px}
+.row input[type=number],.row select{font:inherit;padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--text);width:110px}
+.row select{width:auto}
+main{padding:10px 16px;max-width:720px;margin:0 auto}
+.count{font-size:13px;color:var(--muted);margin:2px 0 10px}
+.card{display:block;background:var(--card);border-radius:14px;box-shadow:var(--shadow);margin-bottom:12px;overflow:hidden;border:1px solid var(--line);position:relative}
+.card.new{border-color:var(--new)}
+.card .top{display:flex;gap:12px;padding:12px 12px 8px}
+.card .img{flex:none;width:96px;height:96px;border-radius:10px;background:var(--chip) center/cover no-repeat;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:24px}
+.card .body{flex:1;min-width:0}
+.price{font-size:22px;font-weight:700;letter-spacing:-.01em}
+.price small{font-size:12px;font-weight:400;color:var(--muted);margin-left:3px}
+.price .unk{font-size:16px;color:var(--muted);font-weight:500}
+.title{font-size:14.5px;line-height:1.35;margin:2px 0 4px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.meta{font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.badges{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}
+.b{font-size:11px;padding:2px 7px;border-radius:6px;background:var(--chip);color:var(--muted)}
+.b.sub{background:var(--subsidy-soft);color:var(--subsidy);font-weight:700}
+.b.new{background:var(--new-soft);color:var(--new);font-weight:700}
+.b.src{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.card .foot{display:flex;align-items:center;gap:10px;padding:0 12px 10px;font-size:12px;color:var(--muted)}
+.card .foot .sp{flex:1}
+.ib{width:36px;height:32px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;font-size:17px;background:var(--chip)}
+.ib.on{background:#fee2e2;color:#dc2626}
+:root[data-theme="dark"] .ib.on,:root:not([data-theme="light"]) .ib.on{color:#fca5a5}
+.raw{display:none;padding:0 12px 12px;font-size:13px;color:var(--muted);white-space:pre-wrap;word-break:break-word;border-top:1px dashed var(--line);padding-top:8px}
+.card.open .raw{display:block}
+.empty{text-align:center;color:var(--muted);padding:48px 16px;font-size:14px}
+nav{position:fixed;left:0;right:0;bottom:0;z-index:30;display:flex;background:var(--card);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
+nav button{flex:1;padding:9px 0 7px;font-size:11px;color:var(--muted);display:flex;flex-direction:column;align-items:center;gap:2px}
+nav button b{font-size:20px;font-weight:400}
+nav button.on{color:var(--accent);font-weight:600}
+#map{display:none;position:fixed;top:0;left:0;right:0;bottom:calc(56px + env(safe-area-inset-bottom));z-index:10}
+body.map-mode #map{display:block}
+body.map-mode main,body.map-mode header{display:none}
+.leaflet-popup-content{margin:10px 12px;font:13px/1.4 inherit;min-width:180px}
+.leaflet-popup-content .price{font-size:18px}
+.mapbar{position:fixed;top:10px;left:16px;right:16px;z-index:15;display:none;gap:8px}
+body.map-mode .mapbar{display:flex}
+.mapbar .pill{background:var(--card);border:1px solid var(--line);border-radius:999px;padding:8px 14px;font-size:13px;box-shadow:var(--shadow)}
+.settings p{color:var(--muted);font-size:13px}
+.settings .card{padding:12px}
+.settings h3{margin:0 0 6px;font-size:15px}
+.btn{display:inline-block;padding:8px 14px;border-radius:10px;background:var(--accent);color:#fff;font-weight:600;font-size:14px}
+.btn.ghost{background:var(--chip);color:var(--text)}
+code{background:var(--chip);padding:1px 5px;border-radius:5px;font-size:12px}
+</style>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <h1>🏠 租屋雷達</h1>
+    <div class="upd" id="upd">載入中…</div>
+  </div>
+  <div class="status" id="status"></div>
+  <div class="chips" id="chips"></div>
+  <div class="panel" id="panel">
+    <div class="row"><label>價格</label><input type="number" id="pmin" placeholder="最低" step="500"> ～ <input type="number" id="pmax" placeholder="最高" step="500"></div>
+    <div class="row"><label>排序</label>
+      <select id="sort">
+        <option value="new">最新</option>
+        <option value="price">價格低→高</option>
+        <option value="mrt">離捷運近</option>
+        <option value="ping">坪數大→小</option>
+      </select>
+      <span class="sp" style="flex:1"></span>
+      <button class="chip gear" id="reset">清除篩選</button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="count" id="count"></div>
+  <div id="list"></div>
+</main>
+
+<div class="mapbar"><span class="pill" id="mapcount"></span><span class="pill">🏷️ 橘＝可租補</span></div>
+<div id="map"></div>
+
+<nav>
+  <button data-tab="list" class="on"><b>📋</b>列表</button>
+  <button data-tab="map"><b>🗺️</b>地圖</button>
+  <button data-tab="fav"><b>❤️</b>收藏</button>
+  <button data-tab="settings"><b>⚙️</b>設定</button>
+</nav>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+(() => {
+const DISTRICTS = ["板橋","萬華","三重","中和","永和"];
+const KINDS = ["整層住家","獨立套房"];
+const SOURCES = {rent591:"591", ptt:"PTT", fb:"FB"};
+const LS = {
+  get(k, d){ try{ const v = localStorage.getItem(k); return v==null? d : JSON.parse(v);}catch(e){ return d; } },
+  set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} },
+};
+const params = new URLSearchParams(location.search);
+const prevVisit = LS.get("rr_last_visit", null);
+LS.set("rr_last_visit", new Date().toISOString());
+
+let F = Object.assign({d:[], k:[], s:[], sub:false, newOnly: params.get("new")==="1", pmin:"", pmax:"", sort:"new"}, LS.get("rr_filters", {}));
+if (params.get("new")==="1") F.newOnly = true;
+let fav = new Set(LS.get("rr_fav", []));
+let hidden = new Set(LS.get("rr_hide", []));
+let tab = "list";
+let DATA = [], STATUS = null, map = null, layer = null;
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s==null?"":s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmtPrice = p => p ? p.toLocaleString("zh-TW") : null;
+function rel(iso){
+  if(!iso) return "";
+  const d = (Date.now() - new Date(iso).getTime())/60000;
+  if (d < 1) return "剛剛"; if (d < 60) return Math.round(d)+" 分鐘前";
+  if (d < 1440) return Math.round(d/60)+" 小時前"; return Math.round(d/1440)+" 天前";
+}
+const isNew = l => prevVisit ? (l.first_seen > prevVisit) : false;
+const save = () => LS.set("rr_filters", F);
+
+function passes(l){
+  if (hidden.has(l.id)) return false;
+  if (F.d.length && !F.d.includes(l.district)) return false;
+  if (F.k.length && !F.k.includes(l.kind)) return false;
+  if (F.s.length && !F.s.includes(l.source)) return false;
+  if (F.sub && !l.subsidy) return false;
+  if (F.newOnly && !isNew(l)) return false;
+  if (F.pmin && l.price && l.price < +F.pmin) return false;
+  if (F.pmax && l.price && l.price > +F.pmax) return false;
+  return true;
+}
+function sorted(arr){
+  const s = F.sort;
+  return arr.slice().sort((a,b) => {
+    if (s==="price") return (a.price||1e9)-(b.price||1e9);
+    if (s==="mrt") return (a.mrt_dist_m??1e9)-(b.mrt_dist_m??1e9);
+    if (s==="ping") return (b.area_ping||0)-(a.area_ping||0);
+    return (b.first_seen||"").localeCompare(a.first_seen||"");
+  });
+}
+function visible(){
+  if (tab==="fav") return sorted(DATA.filter(l => fav.has(l.id)));
+  return sorted(DATA.filter(passes));
+}
+
+function renderChips(){
+  const c = $("#chips"); c.innerHTML = "";
+  const add = (label, on, cls, fn) => { const b = document.createElement("button"); b.className = "chip"+(on?" on":"")+(cls?" "+cls:""); b.textContent = label; b.onclick = fn; c.appendChild(b); };
+  add("⚙︎ 更多", $("#panel").classList.contains("open"), "gear", () => { $("#panel").classList.toggle("open"); renderChips(); });
+  add("🏷️ 可租補", F.sub, "sub", () => { F.sub = !F.sub; save(); render(); });
+  add("🆕 新的", F.newOnly, "", () => { F.newOnly = !F.newOnly; save(); render(); });
+  DISTRICTS.forEach(d => add(d, F.d.includes(d), "", () => { F.d = F.d.includes(d) ? F.d.filter(x=>x!==d) : [...F.d, d]; save(); render(); }));
+  KINDS.forEach(k => add(k==="整層住家"?"整層":"套房", F.k.includes(k), "", () => { F.k = F.k.includes(k) ? F.k.filter(x=>x!==k) : [...F.k, k]; save(); render(); }));
+  Object.entries(SOURCES).forEach(([k,v]) => add(v, F.s.includes(k), "", () => { F.s = F.s.includes(k) ? F.s.filter(x=>x!==k) : [...F.s, k]; save(); render(); }));
+}
+
+function card(l){
+  const n = isNew(l);
+  const mrt = l.nearest_mrt ? (l.mrt_dist_m!=null ? `🚇 ${esc(l.nearest_mrt)}站 ${l.mrt_dist_m>=1000? (l.mrt_dist_m/1000).toFixed(1)+"km" : l.mrt_dist_m+"m"}` : `🚇 近${esc(l.nearest_mrt)}站`) : "";
+  const meta = [l.district, l.kind, l.area_ping? l.area_ping+"坪":null, l.floor, l.layout].filter(Boolean).join("・");
+  const badges = [
+    l.subsidy ? `<span class="b sub">🏷️ 可租補${l.subsidy_hits&&l.subsidy_hits.length? "・"+esc(l.subsidy_hits[0]):""}</span>` : "",
+    n ? `<span class="b new">新</span>` : "",
+    `<span class="b src">${SOURCES[l.source]||esc(l.source)}</span>`,
+    ...(l.tags||[]).filter(t => !/^Rent_/.test(t) && t!=="租金補貼").slice(0,4).map(t => `<span class="b">${esc(t)}</span>`),
+  ].join("");
+  const extraSrc = (l.sources||[]).map(s => `<a href="${esc(s.url)}" target="_blank" rel="noopener" class="b src">${SOURCES[s.source]||esc(s.source)} ↗</a>`).join(" ");
+  const when = l.posted_at ? `刊登 ${rel(l.posted_at)}` : `發現 ${rel(l.first_seen)}`;
+  return `<article class="card${n?" new":""}" data-id="${esc(l.id)}">
+    <a class="top" href="${esc(l.url)}" target="_blank" rel="noopener">
+      <div class="img" ${l.image? `style="background-image:url('${esc(l.image)}')"`:""}>${l.image?"":"🏠"}</div>
+      <div class="body">
+        <div class="price">${l.price? fmtPrice(l.price)+"<small>元/月</small>" : '<span class="unk">價格未知</span>'}</div>
+        <div class="title">${esc(l.title)}</div>
+        <div class="meta">${esc(meta)}${mrt? " ・ "+mrt : ""}</div>
+        <div class="badges">${badges}${extraSrc}</div>
+      </div>
+    </a>
+    <div class="foot">
+      <span>${when}</span>${l.address? `<span>・${esc(l.address)}</span>`:""}
+      <span class="sp"></span>
+      ${l.raw_text && l.source!=="rent591" ? `<button class="ib" data-act="raw" title="內文">📄</button>`:""}
+      <button class="ib${fav.has(l.id)?" on":""}" data-act="fav" title="收藏">${fav.has(l.id)?"❤️":"🤍"}</button>
+      <button class="ib" data-act="hide" title="隱藏">${hidden.has(l.id)?"↩️":"✕"}</button>
+    </div>
+    ${l.raw_text && l.source!=="rent591" ? `<div class="raw">${esc(l.raw_text)}</div>`:""}
+  </article>`;
+}
+
+function renderList(){
+  const arr = visible();
+  const total = DATA.filter(l => !hidden.has(l.id)).length;
+  $("#count").textContent = tab==="fav" ? `收藏 ${arr.length} 筆` : `${arr.length} / ${total} 筆` + (hidden.size? `（已隱藏 ${hidden.size}）`:"");
+  $("#list").innerHTML = arr.length ? arr.map(card).join("") : `<div class="empty">${tab==="fav"?"還沒有收藏，按 🤍 加入。":"沒有符合條件的物件。"}</div>`;
+}
+
+function renderSettings(){
+  const hid = DATA.filter(l => hidden.has(l.id));
+  const st = STATUS ? Object.entries(STATUS.sources||{}).map(([k,v]) => `<div>${SOURCES[k]||k}：${v.ok===true?"正常":v.ok===false?"失敗":"未啟用"}${v.last_success? "，上次成功 "+rel(v.last_success):""}${v.last_error? `<br><small style="color:var(--muted)">${esc(v.last_error)}</small>`:""}</div>`).join("") : "";
+  $("#count").textContent = "";
+  $("#list").innerHTML = `<div class="settings">
+    <div class="card"><h3>資料來源狀態</h3>${st || "<p>尚無狀態資料</p>"}<p>資料更新：${STATUS&&STATUS.updated_at? new Date(STATUS.updated_at).toLocaleString("zh-TW") : "—"}</p></div>
+    <div class="card"><h3>已隱藏（${hid.length}）</h3>${hid.length? hid.map(l => `<div class="row"><span style="flex:1;font-size:13px">${esc(l.district)} ${l.price?fmtPrice(l.price):""} ${esc(l.title).slice(0,24)}</span><button class="chip" data-unhide="${esc(l.id)}">還原</button></div>`).join("") : "<p>沒有隱藏的物件</p>"}
+      ${hid.length? `<p><button class="btn ghost" id="unhideAll">全部還原</button></p>`:""}</div>
+    <div class="card"><h3>外觀</h3><div class="row"><button class="chip" data-theme="auto">跟隨系統</button><button class="chip" data-theme="light">淺色</button><button class="chip" data-theme="dark">深色</button></div></div>
+    <div class="card"><h3>說明</h3><p>每小時自動掃 591、PTT 租屋板與 FB 社團通知信，只收板橋／萬華／三重／中和／永和、12,000–18,500 的整層住家與獨立套房。🏷️ 表示內容提到可申請租金補貼。收藏與隱藏只存在這支手機的瀏覽器。</p><p>手機通知：裝 ntfy App 並訂閱設定好的主題，有新物件就會推播。</p></div>
+  </div>`;
+}
+
+function renderMap(){
+  if (!map){
+    map = L.map("map", {zoomControl:false}).setView([25.02, 121.48], 13);
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {maxZoom:19, attribution:"© OpenStreetMap"}).addTo(map);
+    layer = L.layerGroup().addTo(map);
+  }
+  layer.clearLayers();
+  const arr = visible().filter(l => l.lat && l.lng);
+  $("#mapcount").textContent = `${arr.length} 筆有座標`;
+  const pts = [];
+  arr.forEach(l => {
+    const approx = l.extra && l.extra.geo_precision && l.extra.geo_precision!=="street";
+    const m = L.circleMarker([l.lat, l.lng], {radius: approx?7:9, color: l.subsidy? "#d97706":"#0f766e", fillColor: l.subsidy? "#f59e0b":"#14b8a6", fillOpacity: approx?0.35:0.85, weight:2, dashArray: approx?"3 3":null});
+    m.bindPopup(`<div class="price">${l.price? fmtPrice(l.price)+"<small>元/月</small>":"價格未知"}</div><div>${esc(l.title).slice(0,40)}</div><div style="color:var(--muted)">${esc([l.district,l.kind,l.area_ping?l.area_ping+"坪":""].filter(Boolean).join("・"))}${approx?"・位置約略":""}</div><a class="btn" style="margin-top:6px" href="${esc(l.url)}" target="_blank" rel="noopener">開啟 ${SOURCES[l.source]||l.source} ↗</a>`);
+    layer.addLayer(m); pts.push([l.lat,l.lng]);
+  });
+  setTimeout(() => { map.invalidateSize(); if (pts.length) map.fitBounds(pts, {padding:[40,40], maxZoom:15}); }, 60);
+}
+
+function render(){
+  document.body.classList.toggle("map-mode", tab==="map");
+  document.querySelectorAll("nav button").forEach(b => b.classList.toggle("on", b.dataset.tab===tab));
+  renderChips();
+  if (tab==="map") renderMap();
+  else if (tab==="settings") renderSettings();
+  else renderList();
+}
+
+function renderStatus(){
+  const s = $("#status"); s.innerHTML = "";
+  if (!STATUS) return;
+  Object.entries(STATUS.sources||{}).forEach(([k,v]) => {
+    const cls = v.ok===true? "ok" : v.ok===false? "bad" : "";
+    s.insertAdjacentHTML("beforeend", `<span><i class="${cls}"></i>${SOURCES[k]||k}${v.ok===false?"（失敗）":v.ok==null?"（未啟用）":""}</span>`);
+  });
+}
+
+document.addEventListener("click", e => {
+  const nb = e.target.closest("nav button"); if (nb){ tab = nb.dataset.tab; render(); return; }
+  const act = e.target.closest("[data-act]");
+  if (act){
+    e.preventDefault();
+    const id = act.closest(".card").dataset.id;
+    if (act.dataset.act==="fav"){ fav.has(id)? fav.delete(id): fav.add(id); LS.set("rr_fav",[...fav]); }
+    if (act.dataset.act==="hide"){ hidden.has(id)? hidden.delete(id): hidden.add(id); LS.set("rr_hide",[...hidden]); }
+    if (act.dataset.act==="raw"){ act.closest(".card").classList.toggle("open"); return; }
+    render(); return;
+  }
+  const uh = e.target.closest("[data-unhide]"); if (uh){ hidden.delete(uh.dataset.unhide); LS.set("rr_hide",[...hidden]); render(); return; }
+  if (e.target.id==="unhideAll"){ hidden.clear(); LS.set("rr_hide",[]); render(); return; }
+  const th = e.target.closest("[data-theme]"); if (th){ const t = th.dataset.theme; if (t==="auto") document.documentElement.removeAttribute("data-theme"); else document.documentElement.setAttribute("data-theme", t); LS.set("rr_theme", t); return; }
+  if (e.target.id==="reset"){ F = {d:[],k:[],s:[],sub:false,newOnly:false,pmin:"",pmax:"",sort:"new"}; save(); syncPanel(); render(); }
+});
+$("#pmin").addEventListener("change", e => { F.pmin = e.target.value; save(); render(); });
+$("#pmax").addEventListener("change", e => { F.pmax = e.target.value; save(); render(); });
+$("#sort").addEventListener("change", e => { F.sort = e.target.value; save(); render(); });
+function syncPanel(){ $("#pmin").value = F.pmin||""; $("#pmax").value = F.pmax||""; $("#sort").value = F.sort||"new"; }
+
+const theme = LS.get("rr_theme", "auto"); if (theme!=="auto") document.documentElement.setAttribute("data-theme", theme);
+
+async function load(){
+  const bust = "?t=" + Math.floor(Date.now()/60000);
+  try{
+    const [a, b] = await Promise.all([
+      fetch("data/listings.json"+bust, {cache:"no-store"}).then(r => r.ok? r.json() : {listings:[]}),
+      fetch("data/status.json"+bust, {cache:"no-store"}).then(r => r.ok? r.json() : null).catch(() => null),
+    ]);
+    DATA = a.listings || []; STATUS = b;
+    const g = a.generated_at ? new Date(a.generated_at) : null;
+    $("#upd").innerHTML = g ? `更新 ${rel(g.toISOString())}<br><small>${g.toLocaleString("zh-TW",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"})}</small>` : "尚無資料";
+    const newCount = DATA.filter(isNew).length;
+    if (newCount && !F.newOnly) $("#upd").innerHTML += `<br><small style="color:var(--new)">上次看過後新增 ${newCount} 筆</small>`;
+  }catch(err){
+    $("#upd").textContent = "載入失敗";
+    $("#list").innerHTML = `<div class="empty">讀不到資料：${esc(err.message)}</div>`;
+    return;
+  }
+  syncPanel(); renderStatus(); render();
+}
+load();
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+})();
+</script>
+</body>
+</html>
