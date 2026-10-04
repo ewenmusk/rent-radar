@@ -3,25 +3,25 @@
   "rent591": {
    "consecutive_failures": 0,
    "ok": true,
-   "last_success": "2026-10-04T05:27:00+08:00",
+   "last_success": "2026-10-04T08:46:00+08:00",
    "last_error": null,
    "count": 206,
-   "last_run": "2026-10-04T05:27:00+08:00"
+   "last_run": "2026-10-04T08:46:00+08:00"
   },
   "ptt": {
    "consecutive_failures": 0,
    "ok": true,
-   "last_success": "2026-10-04T05:27:08+08:00",
+   "last_success": "2026-10-04T08:46:10+08:00",
    "last_error": null,
    "count": 4,
-   "last_run": "2026-10-04T05:27:08+08:00"
+   "last_run": "2026-10-04T08:46:10+08:00"
   },
   "fb": {
    "consecutive_failures": 0,
    "ok": null,
    "last_error": "略過：未設定 FB_MAIL_USER / FB_MAIL_PASS",
-   "last_run": "2026-10-04T05:27:08+08:00"
+   "last_run": "2026-10-04T08:46:10+08:00"
   }
  },
- "updated_at": "2026-10-04T05:27:08+08:00"
+ "updated_at": "2026-10-04T08:46:10+08:00"
 }
